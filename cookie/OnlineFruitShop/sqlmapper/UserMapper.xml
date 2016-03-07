@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  <mapper namespace="com.henu.dao.UserMapper">
+    <insert id="create" parameterType="userEntity" useGeneratedKeys="true"
+        keyProperty="id">
+        <![CDATA[
+            INSERT INTO
+                user (username, password, age, gender, userId, phone, address, registerTime, lastUpdateTime)
+            VALUES (#{username}, #{password}, #{age}, #{gender}, #{userId}, #{phone}, #{address}, NOW(), NOW())
+        ]]>
+    </insert>
+    
+    <update id="delete" parameterType="int">
+        <![CDATA[
+            Update 
+            	user 
+            SET 
+                isDelete = 1, lastUpdateTime = NOW() WHERE id = #{id}
+        ]]>
+    </update>
+    
+    <update id="update" parameterType="java.util.Map">
+        <![CDATA[
+            Update 
+            	user
+            SET username = #{user.username},
+            	password = #{user.password}, 
+            	phone = #{user.phone}, 
+            	address = #{user.address},
+            	age = $(age),
+            	gender = $(gender),
+            	lastUpdateTime = NOW()
+            WHERE
+            	id = #{id}
+        ]]>
+    </update>
+    
+    
+    <select id="getByName" resultType="userEntity" parameterType="String">
+        <![CDATA[
+            SELECT * FROM user WHERE username = #{username} and isDeleted = 0
+        ]]>
+    </select>
+    
+    <select id="getById" resultType="userEntity" parameterType="int">
+        <![CDATA[
+            SELECT * FROM user WHERE id = #{id} and isDeleted = 0
+        ]]>
+    </select>
+
+    <select id="getTotalCount" resultType="Integer">
+        <![CDATA[
+            SELECT COUNT(*) FROM user WHERE isDeleted = 0
+        ]]>
+    </select>
+    
+    <select id="query" parameterType="java.util.Map" resultType="com.henu.model.User">
+        <![CDATA[
+            SELECT * FROM user WHERE isDeleted =0
+         ]]>
+        <!-- <if test="keyword != null and keyword != '' ">
+            <![CDATA[
+            AND username LIKE CONCAT('%','#{keyword}','%')
+            ]]>
+        </if> -->
+        <![CDATA[
+            ORDER BY id 
+            LIMIT #{pagination.offset}, #{pagination.pageSize}
+        ]]>
+    </select>
+  </mapper>

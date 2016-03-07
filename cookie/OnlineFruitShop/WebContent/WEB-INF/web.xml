@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd" id="WebApp_ID" version="3.0">
+  <display-name>OnlineFruitShop</display-name>
+  <welcome-file-list>
+    <welcome-file>home.html</welcome-file>
+    <welcome-file>/static/index.html</welcome-file>
+    <welcome-file>default.html</welcome-file>
+    <welcome-file>default.htm</welcome-file>
+  </welcome-file-list>
+  
+  <filter>
+    <filter-name>Encoding</filter-name>
+    <filter-class>com.henu.filter.PageEncodingFilter</filter-class>
+    <init-param>
+      <param-name>encoding</param-name>
+      <param-value>UTF-8</param-value>
+    </init-param>
+  </filter>
+  
+  <filter-mapping>
+    <filter-name>Encoding</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+
+  <servlet>
+    <servlet-name>springmvc</servlet-name>
+    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+    <init-param>
+      <description>mvc.xml</description>
+      <param-name>contextConfigLocation</param-name>
+      <param-value>classpath:spring-mvc.xml</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>springmvc</servlet-name>
+    <url-pattern>/</url-pattern>
+  </servlet-mapping>
+  <context-param>
+    <param-name>contextConfigLocation</param-name>
+    <param-value>classpath*:applicationContext.xml</param-value>
+  </context-param>
+  <listener>
+    <display-name>contextLoaderListener</display-name>
+    <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+  </listener>
+  <filter>
+    <display-name>AppContextFilter</display-name>
+    <filter-name>AppContextFilter</filter-name>
+    <filter-class>com.henu.filter.AppContextFilter</filter-class>
+  </filter>
+  <filter-mapping>
+    <filter-name>AppContextFilter</filter-name>
+    <url-pattern>/pass/*</url-pattern>
+  </filter-mapping>
+</web-app>

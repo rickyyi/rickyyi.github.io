@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  <mapper namespace="com.henu.dao.OrderMapper">
+    <insert id="create" parameterType="OrderEntity" useGeneratedKeys="true"
+        keyProperty="id">
+        <![CDATA[
+            INSERT INTO
+                orders (userId, goodsId, orderCount, totalPrice, createTime, lastModifyTime, orderStatus)
+            VALUES (#{userId}, #{goodsId}, #{orderCount}, #{totalPrice}, NOW(), NOW(), #{orderStatus})
+        ]]>
+    </insert>
+    
+    <select id="findByUserId" parameterType="int" resultType="orderEntity">
+        <![CDATA[
+            SELECT * FROM orders WHERE isDeleted =0 AND userId = #{userId}
+            ORDER BY createTime DESC
+         ]]>
+    </select>
+    
+    <select id="getTotalCount" resultType="Integer" parameterType="java.util.Map">
+        <![CDATA[
+            SELECT COUNT(*) FROM orders WHERE isDeleted = 0
+        ]]>
+        <if test="keyword != null and keyword != '' ">
+            <![CDATA[
+            AND ${type} LIKE '%${keyword}%'
+            ]]>
+        </if>
+    </select>
+
+    <select id="query" parameterType="java.util.Map" resultType="orderEntity">
+        <![CDATA[
+            SELECT * FROM orders WHERE isDeleted =0
+         ]]>
+         <if test="keyword != null and keyword != '' ">
+            <![CDATA[
+            AND ${type} LIKE '%${keyword}%'
+            ]]>
+        </if>
+        <![CDATA[
+            ORDER BY id 
+            LIMIT #{pagination.offset}, #{pagination.pageSize}
+        ]]>
+    </select>
+  </mapper>

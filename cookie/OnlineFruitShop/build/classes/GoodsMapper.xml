@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  <mapper namespace="com.henu.dao.GoodsMapper">
+    <insert id="create" parameterType="goodsEntity" useGeneratedKeys="true"
+        keyProperty="id">
+        <![CDATA[
+            INSERT INTO
+                goods (goodsName, category, introduction, price, stock, createTime, lastModifyTime, thumbnail, imageList)
+            VALUES (#{goodsName}, #{category}, #{introduction}, #{price}, #{stock}, NOW(), NOW(), #{thumbnail}, #{imageList})
+        ]]>
+    </insert>
+    
+    <update id="delete" parameterType="int">
+        <![CDATA[
+            Update 
+            	goods 
+            SET 
+                isDeleted = 1, lastModifyTime = NOW() WHERE id = #{id}
+        ]]>
+    </update>
+    
+    <update id="update" parameterType="java.util.Map">
+        <![CDATA[
+            Update 
+            	goods
+            SET goodsName = #{goods.goodsName},
+            	category = #{goods.category}, 
+            	introduction = #{goods.introduction}, 
+            	price = #{goods.price},
+            	stock = #{goods.stock},
+            	thumbnail = #{goods.thumbnail},
+            	lastModifyTime = NOW()
+            WHERE
+            	id = #{id}
+        ]]>
+    </update>
+
+    <select id="getStock" resultType="Integer" parameterType="Integer">
+        <![CDATA[
+            SELECT stock FROM goods WHERE id = #{id} and isDeleted = 0
+        ]]>
+        
+    </select>
+
+    <update id="updateStock" parameterType="java.util.Map">
+        <![CDATA[
+            Update 
+            	goods
+            SET stock = #{stock},
+            	lastModifyTime = NOW()
+            WHERE
+            	id = #{id}
+        ]]>
+    </update>
+
+    <select id="getLastByLimit" resultType="goodsEntity" parameterType="int">
+        <![CDATA[
+            SELECT * FROM goods WHERE isDeleted = 0 ORDER BY createTime DESC limit #{limit};
+        ]]>
+    </select>
+    
+    <select id="getById" resultType="goodsEntity" parameterType="int">
+        <![CDATA[
+            SELECT * FROM goods WHERE id = #{id} and isDeleted = 0
+        ]]>
+    </select>
+
+    <select id="getTotalCount" resultType="Integer" parameterType="java.util.Map">
+        <![CDATA[
+            SELECT COUNT(*) FROM goods WHERE isDeleted = 0
+        ]]>
+        <if test="keyword != null and keyword != '' ">
+            <![CDATA[
+            AND ${type} LIKE '%${keyword}%'
+            ]]>
+        </if>
+    </select>
+    
+    <select id="query" parameterType="java.util.Map" resultType="goodsEntity">
+        <![CDATA[
+            SELECT * FROM goods WHERE isDeleted =0
+         ]]>
+         <if test="keyword != null and keyword != '' ">
+            <![CDATA[
+            AND ${type} LIKE '%${keyword}%'
+            ]]>
+        </if>
+        <![CDATA[
+            ORDER BY id 
+            LIMIT #{pagination.offset}, #{pagination.pageSize}
+        ]]>
+    </select>
+  </mapper>
