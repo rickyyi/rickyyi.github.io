@@ -8,7 +8,24 @@
 	<body>
 		
 		<svg class="nineSvg" id="nineSvg"></svg>
-		<p>正确密码:742569</p>
+		<p>正确密码:123456</p>
+		<script>
+		  window.fbAsyncInit = function() {
+		    FB.init({
+		      appId      : 'your-app-id',
+		      xfbml      : true,
+		      version    : 'v2.5'
+		    });
+		  };
+		
+		  (function(d, s, id){
+		     var js, fjs = d.getElementsByTagName(s)[0];
+		     if (d.getElementById(id)) {return;}
+		     js = d.createElement(s); js.id = id;
+		     js.src = "//connect.facebook.net/en_US/sdk.js";
+		     fjs.parentNode.insertBefore(js, fjs);
+		   }(document, 'script', 'facebook-jssdk'));
+		</script>
 		
 	</body>
 </html>
@@ -47,7 +64,7 @@ $(function(){
 			thisL     = '',//d的值
 			thisPass  = [],//画出的密码
 			canDoLine = false,//是否在元素上
-			passWord  = 742569,//设置的密码
+			passWord  = 123456,//设置的密码
 			a;
 
 		//画入9宫格子
