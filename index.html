@@ -1,447 +1,660 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"> 
 <html>
 	<head>
-		<META http-equiv=Content-Type content="text/html; charset=UTF-8"/>
-	</head>
-	<style>
-		body{margin:0px;text-align:center;}
-		.centerdiv{
-			border:0px;
-			margin-left:200px;
-			width:400px;
-			height:540px;
-			background-color:#000000;
-			float:left;
-		}
-		.rightDiv{
-			width:200px;
-			float:left;
-		}
-		.speedDiv{
-			width:200px;
-			float:left;
-		}
-		.squareson{
-			float:left;
-			width:38px;
-			border:1px solid #000000;
-			height:38px;
-			background-color:#ffff00;
-		}
-		.squaresoff{
-			float:left;
-			width:40px;
-			border:0px;
-			height:40px;
-			background-color:#000000;
-		}
-	</style>
-<body>
-</body>
-<script type="text/javascript">
-		var Square=function(speed){
-			this.statu=0;//记录当前状态
-			this.speed=speed||400;//记录当前速度
-			this.lockspeed=this.speed;
-			this.squareType;//记录方块类型
-			this.timeDo=null;//定时下落
-			this.keyLock=false;//事件未锁定
-			this.score=0;//所得分数
-			this.contentDiv=null;
-			this.speedDiv=null;
-			this.loddingData={arr:null,type:0,x:3,y:0,width:0,height:0};//记录当前类型
-			/*初始化数组*/
-			this.sqarr=new Array();
-			this.linenumber=15;
-			this.objs={};//存放对象的地方
-			for(var i=0;i<this.linenumber;i++){
-				this.sqarr[i]=new Array();
-				for(var j=0;j<10;j++){
-					this.sqarr[i][j]=0;
-				}
+		<style>
+			canvas {
+				position: absolute;
+				top: -80px;
+				left: -60px;
 			}
-			this.sqareDiv=this.createDiv();
-		}
-		//启动  start
-		Square.prototype.start=function(){
-			this.createEvent();
-			var $this=this;
-			this.contentDiv=this.createNode({className:'rightDiv'});
-			this.speedDiv=this.createNode({className:'speedDiv'});
-			this.contentDiv.innerHTML="score:0";
-			this.speedDiv.innerHTML="speed:"+this.speed+"ms";
-			this.run();
-		}
-		//执行 run
-		Square.prototype.run=function(){
-			this.loddingData=this.createTypeArr();
-			if(this.ifIndata()){
-				this.showAll();
-				this.clearAndShow(null,this.loddingData);
-				var obj=this;
-				obj.keyLock=false;
-				obj.speed=obj.lockspeed;
-				obj.timeDo=window.setTimeout(function(){obj.downData(obj);},obj.speed);
-			}else{
-				var $this=this;
-				var button=this.createNode({tagName:'BUTTON',parentNode:$this.contentDiv});
-				var textNode=document.createTextNode("重新开始");
-				button.appendChild(textNode);
-				var obj=this;
-				var al=document.createTextNode("click this button to play again!");
-				this.contentDiv.appendChild(al);
-				button.onclick=function(){
-					obj.contentDiv.parentNode.removeChild(obj.contentDiv);
-					obj.sqareDiv.parentNode.removeChild(obj.sqareDiv);
-					obj.speedDiv.parentNode.removeChild(obj.speedDiv);
-					var square=new Square();
-					square.start();
-				}
+		</style>
+		<script>
+					var _each = function(array, func) {
+			for(var i = 0; i < array.length; i++) {
+				func(array[i]);
 			}
-		}
-		//循环下落  fall down
-		Square.prototype.downData=function(obj){
-			if(obj.ifIndata()){
-				var data=obj.extendData(obj.loddingData,{});
-				obj.loddingData.y=obj.loddingData.y+1;
-				if(!obj.ifIndata()){
-					obj.loddingData=data;
-					if(obj.timeDo!=null){
-						window.clearTimeout(obj.timeDo);
-						obj.timeDo=null;
-					}
-					obj.indata();
-					obj.showAll();
-					var line=obj.harvest();
-					if(line>0){
-						obj.contentDiv.innerHTML="score:"+obj.score;
-						obj.speedDiv.innerHTML="speed:"+obj.speed+"ms";
-						window.setTimeout(function(){obj.showAll(obj)},50);
-					}
-					obj.run();
-				}else{
-					obj.showAll();
-					obj.clearAndShow(data,obj.loddingData);
-					obj.speedDiv.innerHTML="speed:"+obj.speed+"ms";
-					obj.timeDo=window.setTimeout(function(){obj.downData(obj);},obj.speed);
-				}
-			}else{
-				if(obj.timeDo!=null){
-					window.clearTimeout(obj.timeDo);
-					obj.timeDo=null;
-				}
-				obj.indata();
-				obj.showAll();
-				var line=obj.harvest();
-				if(line>0){
-					obj.contentDiv.innerHTML="score:"+obj.score;
-					obj.speedDiv.innerHTML="speed:"+obj.speed+"ms";
-					window.setTimeout(function(){obj.showAll(obj)},50);
-				}
-				obj.run();
-			}
-		}
-		//判断是否可以移动  if can move
-		Square.prototype.ifIndata=function(){
-			var data=this.loddingData;
-			if(data.y<0||this.sqarr.length<data.y+data.height){
-				return false;
-			}
-			if(data.x<0||this.sqarr[0].length<data.x+data.width){
-				return false;
-			}
-			for(var i=0;i<data.height;i++){
-				var y=data.y+i;
-				var sqarrcopyX=this.sqarr[y];
-				for(var j=0;j<data.width;j++){
-					var x=data.x+j;
-					if(data.arr[i][j]==1&&sqarrcopyX[x]==1){
-						return false;
-					}
-				}
-			}
-			return true;
-		}
-		//移动 合并数据
-		Square.prototype.indata=function(){
-			var data=this.loddingData;
-			for(var i=0;i<data.height;i++){
-				var y=data.y+i;
-				var sqarrcopyX=this.sqarr[y];
-				for(var j=0;j<data.width;j++){
-					var x=data.x+j;
-					if(data.arr[i][j]==1){
-						sqarrcopyX[x]=data.arr[i][j];
-					}
-				}
-			}
-		}
-		//消除合适组合  get the score
-		Square.prototype.harvest=function(){
-			var sqarr=this.sqarr;
-			var line=0;
-			for(var i=0;i<sqarr.length;i++){
-				var sqarrX=sqarr[i];
-				var flag=true;
-				for(var j=0;j<sqarrX.length;j++){
-					if(sqarrX[j]==0){
-						flag=false;
-					}
-				}
-				if(flag){
-					sqarr.splice(i,1);
-					sqarr.unshift([0,0,0,0,0,0,0,0,0,0]);
-					line++;
-				}
-			}
-			switch(line){
-				case 1:
-					this.score+=10;
-					break;
-				case 2:
-					this.score+=30;
-					break;
-				case 3:
-					this.score+=60;
-					break;
-				case 4:
-					this.score+=100;
-					break;
-			}
-			return line;
-		}
-		//工具方法 tool
-		Square.prototype.cloneArray=function(arr){
-			var array=new Array();
-			for(var i=0;i<arr.length;i++){
-				var yarr=arr[i];
-				for(var j=0;j<yarr.length;j++){
-					array[i][j]=yarr[i];
-				}
-			}
-			return array;
-		}
-		//显示当前数据 show data
-		Square.prototype.showAll=function(obj){
-			var obj=obj||this;
-			var sqarr=obj.sqarr;
-			for(var i=0;i<sqarr.length;i++){
-				var sqarrX=sqarr[i];
-				for(var j=0;j<sqarrX.length;j++){
-					var node=this.objs["node_"+i+""+j];
-					if(sqarrX[j]==0){
-						node.className="squaresoff";
-					}else{
-						node.className="squareson";
-					}
-				}
-			}
-		}
-		//显示当前方块数据   show array 
-		Square.prototype.showArrDIv=function(){
-			var data=this.loddingData;
-			for(var i=0;i<data.height;i++){
-				var y=data.y+i;
-				var sqarrcopyX=this.sqarr[y];
-				for(var j=0;j<data.width;j++){
-					var x=data.x+j;
-					if(data.arr[i][j]==1){
-						try{
-							this.objs["node_"+y+""+x].className="squareson";
-						}catch(e){
-							alert(y);
-						}
-					}
-				}
-			}
-		}
-		//初始化数据 innit this div
-		Square.prototype.createDiv=function(){
-			var centerdiv=this.createNode({className:'centerdiv'});
-			var sqarr=this.sqarr;
-			for(var i=0;i<sqarr.length;i++){
-				var sqarrX=sqarr[i];
-				for(var j=0;j<sqarrX.length;j++){
-					var node=this.createNode({className:'squaresoff',parentNode:centerdiv});
-					this.objs["node_"+i+""+j]=node;
-				}
-			}
-			return centerdiv;
-		}
-		//创建节点   tool
-		Square.prototype.createNode=function(option){
-			var data=this.extendData({tagName:'DIV',className:'',parentNode:document.body},option || {});
-			var node=document.createElement(data.tagName);
-			node.className=data.className;
-			data.parentNode.appendChild(node);
-			return node;
-		}
-		//数据继承   data inherit
-		Square.prototype.extendData=function(initData,optionData){
-			var returndata={};
-			for(var n in initData){
-				if(optionData.hasOwnProperty(n)){
-					returndata[n]=optionData[n];
-				}else{
-					returndata[n]=initData[n];
-				}
-			}
-			return returndata;
-		}
-		//清楚之前数据，显示当前数据  clear and show data
-		Square.prototype.clearAndShow=function(olddata,newdata){
-			var data=olddata;
-			if(data!=null){
-				for(var i=0;i<data.height;i++){
-					var y=data.y+i;
-					var sqarrcopyX=this.sqarr[y];
-					for(var j=0;j<data.width;j++){
-						var x=data.x+j;
-						if(data.arr[i][j]==1){
-							try{
-								this.objs["node_"+y+""+x].className="squaresoff";
-							}catch(e){
-								alert(y);
+		};
+
+		var Matrix = function(data) {
+			data = data.data || data;
+			data = data[0].length ? data : [data];
+			var height = data.length;
+			var width = data[0].length;
+			var prop = {};
+
+			var matrixObj = function(arg1, arg2) {
+				// y = arg1, x = arg2;
+				if(arg1._index !== undefined) { return data[0][arg1._index]; } // for x, y, z
+				if(typeof(arg1) === 'number') { return arg2 === undefined ? data[arg1] : data[arg1][arg2]; }
+
+				// arg1.type == "matrix", then M * M
+				if(arg1.type == 'matrix') {
+					var resultMatrix = [], resultLine, sum;
+					for(var h = 0; h < height; h ++) {
+						resultMatrix.push(resultLine = []);
+						for(var w = 0; w < arg1.width; w ++) {
+							sum = 0;
+							for(var i = 0; i < width; i ++) {
+								// sum += matrixObj(h, i) * arg1(i, w);
+								sum += data[h][i] * arg1.data[i][w]; // For performance
 							}
+							resultLine.push(sum);
 						}
 					}
+					return Matrix(resultMatrix)(prop);
+				} else {
+					for(var key in arg1) {
+						prop[key] = arg1[key];
+						matrixObj[key] = arg1[key];
+					}
+					return matrixObj;
 				}
-			}
-			data=newdata;
-			for(var i=0;i<data.height;i++){
-				var y=data.y+i;
-				var sqarrcopyX=this.sqarr[y];
-				for(var j=0;j<data.width;j++){
-					var x=data.x+j;
-					if(data.arr[i][j]==1){
-						try{
-							this.objs["node_"+y+""+x].className="squareson";
-						}catch(e){
-							alert(y);
-						}
+			};
+
+			// Array output
+			matrixObj.toString = function() {
+				var res = [];
+				for(var i = 0; i < height; i ++) {
+					res.push(i === 0 ? '[' : ' ');
+					res.push('[');
+					for(var j = 0; j < width; j ++) {
+						res.push(matrixObj(i, j));
+						j === width - 1 || res.push(', ');
+					}
+					res.push(']');
+					i === height - 1 ? res.push(']') : res.push(', \n');
+				}
+				return res.join('');
+			};
+
+			matrixObj.type = "matrix";
+
+			matrixObj.height = height;
+			matrixObj.width = width;
+			matrixObj.data = data;
+
+			return matrixObj;
+		};
+
+		var Shape = function() {
+			var data = [];
+
+			var check = function(point) {
+				var res = [];
+				var single = !point[0].length;
+				for(var i = 0; i < point.length; i++) {
+					res.push(single ? point[i] : check(point[i]));
+				}
+				if(single) {
+					res.length === 2 && res.push(0);
+					res.length === 3 && res.push(1);
+				}
+				return res;
+			};
+
+			var push = function(point) {
+				data.push(check(point));
+			};
+
+			for(var i = 0; i < arguments.length; i++) {
+				var item = arguments[i];
+				if(arguments.length === 1) {
+					// P(p1) => p1
+					if(item.type) { return item; } 
+
+					// P([1, 2]) or L([[1, 2], [2, 3]])
+					if(item.length) {
+						return Matrix(check(item));
 					}
 				}
+				
+				if(item.type) {
+					push(item(0)); // L(p1, p2)
+				} else if(item.length) {
+					push(item); // L([0, 1], [1, 2])
+				} else {
+					push(arguments); // P(1, 2)
+					break;
+				};
 			}
+
+			return Matrix(data);
+		};
+
+		var Point = Shape;
+		var Line = Shape;
+		var Triangle = Shape;
+		
+		var M = Matrix, P = Point, L = Line, T = Triangle;
+		var x = { _index: 0 }, y = { _index: 1 }, z = { _index: 2 },
+			a = x, b = y, c = z;
+
+		var Move = function(vec) {
+			return Matrix([
+				[      1 ,      0 ,      0 , 0 ],
+				[      0 ,      1 ,      0 , 0 ],
+				[      0 ,      0 ,      1 , 0 ],
+				[ vec(x) , vec(y) , vec(z) , 1 ]]);
+		};
+
+		var RotateParams = function(args) {
+			if(args.length) { 
+				return args;
+			} else {
+				return [Math.sin(args), Math.cos(args)];
+			}
+		};
+
+		var oppoAngle = function(angle) {
+			return [-angle[0], angle[1]];
+		};
+
+		var MoveBF = function(op, tran) {
+			return (
+				(Move(P2V(op, P(0, 0))))
+				(tran)
+				(Move(op)));
+		};
+
+		var _RevertX = function() {
+			return M([
+				[ -1 , 0 , 0 , 0 ],
+				[  0 , 1 , 0 , 0 ],
+				[  0 , 0 , 1 , 0 ],
+				[  0 , 0 , 0 , 1 ]]);
+		};
+
+		var _RevertY = function() {
+			return M([
+				[ 1 ,  0 , 0 , 0 ],
+				[ 0 , -1 , 0 , 0 ],
+				[ 0 ,  0 , 1 , 0 ],
+				[ 0 ,  0 , 0 , 1 ]]);
+		};
+
+		var _RevertZ = function() {
+			return M([
+				[ 1 , 0 ,  0 , 0 ],
+				[ 0 , 1 ,  0 , 0 ],
+				[ 0 , 0 , -1 , 0 ],
+				[ 0 , 0 ,  0 , 1 ]]);
+		};
+
+		var _RevertXY = function() {
+			return (_RevertX())(_RevertY());
+		};
+
+		var _RevertXZ = function() {
+			return (_RevertX())(_RevertZ());
+		};
+
+		var _RevertYZ = function() {
+			return (_RevertY())(_RevertZ());
+		};
+
+		var _RevertXYZ = function() {
+			return (_RevertXY())(_RevertZ());
+		};
+
+		var RevertX = function(op) {
+			return MoveBF(op, _RevertX());
+		};
+
+		var RevertY = function(op) {
+			return MoveBF(op, _RevertY());
+		};
+
+		var RevertZ = function(op) {
+			return MoveBF(op, _RevertZ());
+		};
+
+		var RevertXY = function(op) {
+			return MoveBF(op, _RevertXY());
+		};
+		
+		var RevertXZ = function(op) {
+			return MoveBF(op, _RevertXZ());
+		};
+
+		var RevertYZ = function(op) {
+			return MoveBF(op, _RevertYZ());
+		};
+
+		var RevertXYZ = function(op) {
+			return MoveBF(op, _RevertXYZ());
+		};
+
+		// X -> Y
+		// (angle) / (sin, cos)
+		var RotateXY = function(angle) {
+			var angle = RotateParams(angle);
+			var sinA = angle[0], cosA = angle[1];
+			return Matrix([
+				[  cosA , sinA , 0 , 0 ],
+				[ -sinA , cosA , 0 , 0 ],
+				[     0 ,    0 , 1 , 0 ],
+				[     0 ,    0 , 0 , 1 ]]);
+		};
+
+		var RotateYX = function(angle) {
+			return RotateXY(oppoAngle(RotateParams(angle)));
+		};
+
+		// Y -> Z
+		/// (angle) / (sin, cos)
+		var RotateYZ = function(angle) {
+			var angle = RotateParams(angle);
+			var sinA = angle[0], cosA = angle[1];
+			return Matrix([
+				[ 1 ,     0 ,    0 , 0 ],
+				[ 0 ,  cosA , sinA , 0 ],
+				[ 0 , -sinA , cosA , 0 ],
+				[ 0 ,     0 ,    0 , 1 ]]);
+		};
+
+		var RotateZY = function(angle) {
+			return RotateYZ(oppoAngle(RotateParams(angle)));
+		};
+		
+		// Z -> X
+		var RotateZX = function(angle) {
+			var angle = RotateParams(angle);
+			var sinA = angle[0], cosA = angle[1];
+			return Matrix([
+				[ cosA , 0 , -sinA , 0 ],
+				[    0 , 1 ,     0 , 0 ],
+				[ sinA , 0 ,  cosA , 0 ],
+				[    0 , 0 ,     0 , 1 ]]);
+		};
+
+		var RotateXZ = function(angle) {
+			return RotateZX(oppoAngle(RotateParams(angle)));
+		};
+
+		var point2Vector = function(p1, p2) {
+			p2 || (p2 = p1, p1 = P(0, 0));
+			return P(p2(x) - p1(x), p2(y) - p1(y), p2(z) - p1(z));
+		};
+
+		var P2V = point2Vector;
+
+		// Rotate by given line
+		var Rotate = function(p1, p2, angle) {
+			var vec = P2V(p1, p2);
+
+			var A = vec(a), B = vec(b), C = vec(c);
+			var lBC = Math.sqrt(B * B + C * C);
+			var lABC = Math.sqrt(A * A + B * B + C * C);
+				
+			var angle1 = [B / lBC, C / lBC];
+			var angle2 = [-A / lABC, lBC / lABC];
+
+			return (
+				(Move(P2V(p1, P(0, 0))))
+				(RotateYZ(angle1))
+				(RotateZX(angle2))
+				(RotateXY(angle))
+				(RotateXZ(angle2))
+				(RotateZY(angle1))
+				(Move(P2V(p1))));
+		};
+
+		var eyeS = 2000;
+
+		var ProjectTransform = function() {
+			return Matrix([
+				[ eyeS ,    0 , 0 , 0 ],
+				[    0 , eyeS , 0 , 0 ],
+				[    0 ,    0 , 1 , 0 ],
+				[    0 ,    0 , 0 , 1 ]
+			]);
+		};
+
+		var PT = ProjectTransform();
+
+		var Project = function(p) {
+			//return P(eyeS * p(x) / p(z), eyeS * p(y) / p(z));
+			return P(p(x) / p(z) , p(y) / p(z));
+		};
+
+		var NormalVector = function (plane) {
+			var v1 = P2V( P(plane(0)), P(plane(1)) );
+			var v2 = P2V( P(plane(0)), P(plane(2)) );
+
+			var p = P(
+				v1(y) * v2(z) - v1(z) * v2(y),
+				v1(z) * v2(x) - v1(x) * v2(z),
+				v1(x) * v2(y) - v1(y) * v2(x)
+			);
+			return p(z) <= 0 ? p : P2V(p, P(0, 0));
+		};
+
+		var SetNormalVector = function (plane) {
+			plane.NV = plane.NV || NormalVector(plane);
+			return plane;
+		};
+		
+		var InnerProduct = function (v1, v2) {
+			return v1(x) * v2(x) + v1(y) * v2(y) + v1(z) * v2(z);
+		};
+
+		var PlaneCompare = function(baseP, toCheck) {
+			var nv = baseP.NV = baseP.NV || NormalVector(baseP);
+			var count = [0 /* front */, 0 /* back */];
+			for(var i = 0; i < toCheck.height; i++) {
+				var ip = InnerProduct(nv, P2V( P(baseP(0)), P(toCheck(i)) ));
+				ip != 0 && count[ip > 0 ? 0 : 1]++;
+			}
+			// 0: Don't Know, 1: toCheck in front of baseP
+			return count[0] ? (count[1] ? 0 : 1) : -1; 
+		};
+
+		// 0: Plane Cross
+		var PlaneCheck = function(baseP, toCheck) {
+			return PlaneCompare(baseP, toCheck) || PlaneCompare(toCheck, baseP);
+		};
+
+		var GeneTree = function(node) {
+			node.items || (node = { items: node });
+			var sp, index, items = node.items;
+			if(items.length <= 1) {
+				return node;
+			};
+			var len = items.length;
+			var halfLen = Math.floor(len / 2);
+			for(var i = 0; i < len; i++) {
+				if(SetNormalVector(
+					sp = items[index = (i + halfLen) % len]
+					).NV(z) != 0)
+				{ break; }
+			}
+			if(!sp) { return node; }
+
+			node.back = { items:[] };
+			node.front = { items:[] };
+			node.curr = sp;
+			
+			for(var i = 0; i < items.length; i++) {
+				if(i == index) { continue; }
+				(PlaneCheck(sp, items[i]) >= 0 ? node.front : node.back)
+					.items.push(items[i]);
+			}
+			node.items = false;
+			GeneTree(node.back);
+			GeneTree(node.front);
+			return node;
+		};
+
+		var TreeEach = function(tree, func) {
+			tree.curr && func(tree.curr);
+			if(tree.items.length) {
+				for(var i = 0; i < tree.items.length; i++) {
+					func(tree.items[i]);
+				}
+			}
+			tree.front && TreeEach(tree.front, func);
+			tree.back && TreeEach(tree.back, func);
+		};
+
+		var BSP = function(node, func) {
+			TreeEach(GeneTree(node), func);
+		};
+
+		var canvasWidth = 960, canvasHeight = 640;
+		var xBase = canvasWidth / 2, yBase = canvasHeight / 2;
+
+		var _Project = Project;
+		Project = function(p) {
+			p = _Project(p);
+			return P(xBase + p(x), yBase - p(y));
+		};
+
+		var Drawer = function(contexts, color) {
+			var width = canvasWidth;
+			var height = canvasHeight;
+
+			var getColor = function(opacity) {
+				color[3] = opacity;
+				return 'rgba(' + color.join(',') + ')';
+			};
+
+			var drawLine = function(context, p1, p2, strokeWidth) {
+				if(!strokeWidth) { return; }
+				var oldWidth = context.lineWidth;
+				context.lineWidth = strokeWidth;
+				context.beginPath();
+				context.moveTo(p1(x), p1(y));
+				context.lineTo(p2(x), p2(y));
+				context.stroke();
+				context.closePath();
+				context.lineWidth = oldWidth;
+			};
+
+			var drawLines = function(cont, points, widths) {
+				if(!widths.length) { return; }
+				for(var i = 0; i < points.length && i < widths.length; i++) {
+					var curr = points[i];
+					var next = points[(i + 1) % points.length];
+					drawLine(cont, curr, next, widths[i]);
+				}
+			};
+			
+			var fillPlane = function(cont, path, drawStroke, fill) {
+				cont.beginPath();
+				cont.moveTo(path[0](x), path[0](y));
+				for(var h = 1; h < path.length + 1; h ++) {
+					var index = h % path.length;
+					var p = path[index];
+					cont.lineTo(p(x), p(y));
+				}
+				drawStroke && cont.stroke();
+				fill && cont.fill();
+				cont.closePath();
+			};
+
+			var drawPlanes = function(item, transform) {
+				item.A = item.A || 0.6;
+				var path = [];
+				for(var h = 0; h < item.height; h ++) {
+					var p = P(item(h));
+					p = transform ? (p)(transform) : p;
+					path.push(Project(p));
+				}
+
+				_each(contexts, function(cont) {
+					cont.fillStyle = getColor(item.A);
+					fillPlane(cont, path, !item.FO && !item.strokes, !item.LO);
+					!item.FO && item.strokes && drawLines(cont, path, item.strokes);
+				});
+			};
+
+			var clearCanvas = function() {
+				_each(contexts, function(context) {
+					context.clearRect(0, 0, width, height);
+				});
+			};
+
+			this.draw = function(data, transform) {
+				clearCanvas();
+				BSP(data, function(item) {
+					drawPlanes(item, transform);
+				});
+			};
+		};
+
+		var contexts = [];
+
+		for(var i = 1; i < 4; i++) {
+			var canvas = document.getElementById('canvas' + i);
+			var context = canvas.getContext('2d');
+			context.lineWidth = 1;
+			contexts.push(context);
+
+			var lr = (i + 1) % 2;
+			context.strokeStyle = lr ? 'rgb(255, 0, 0)' : 'rgb(0, 255, 255)';
+			//context.fillStyle = lr ? 'rgba(255, 0, 0, 0.5)' : 'rgba(0, 255, 255, 0.5)';
 		}
-		//初始化事件 init Event
-		Square.prototype.createEvent=function(){
-			var obj=this;
-			document.onkeydown=function(e){
-				e=e||event;
-				var keycode=e.keyCode;
-				if(keycode==37){
-					var data=obj.extendData(obj.loddingData,{});
-					obj.loddingData.x=obj.loddingData.x-1;
-					if(obj.loddingData.x<0||!obj.ifIndata()){
-						obj.loddingData=data;
-					}else{
-						obj.clearAndShow(data,obj.loddingData);
-					}
-				}else if(keycode==38){
-					var data=obj.extendData(obj.loddingData,{});
-					obj.loddingData=obj.scroll(data);
-					if(obj.loddingData.x<0||!obj.ifIndata()){
-						obj.loddingData=data;
-					}else{
-						obj.clearAndShow(data,obj.loddingData);
-					}
-				}else if(keycode==39){
-					var data=obj.extendData(obj.loddingData,{});
-					obj.loddingData.x=obj.loddingData.x+1;
-					if(!obj.ifIndata()){
-						obj.loddingData=data;
-					}else{
-						obj.clearAndShow(data,obj.loddingData);
-					}
-				}else if(keycode==40){
-					if(!obj.keyLock){
-						obj.speed=20;
-						obj.keyLock=true;
-					}
-				}else if(keycode==32){
-					if(!obj.keyLock){
-						obj.speed=0;
-						obj.keyLock=true;
-					}
-				}
+		var r_drawer = new Drawer([contexts[0], contexts[2]], [0, 255, 255, 0]);
+		var l_drawer = new Drawer([contexts[1]], [255, 0, 0, 0]);
+
+		var data;
+		var transform;
+
+		var deep = 2000;
+		var R = function(arg1, arg2) {
+			var x1 = arg1[0], x2 = arg2[0];
+			var y1 = arg1[1], y2 = arg2[1];
+			var z1 = arg1[2], z2 = arg2[2];
+
+			var p1, p2;
+			if(x1 == x2) {
+				p1 = [x1, y1, z2];
+				p2 = [x1, y2, z1];
+			} else if(y1 == y2) {
+				p1 = [x1, y1, z2];
+				p2 = [x2, y1, z1];
+			} else {
+				p1 = [x1, y2, z1];
+				p2 = [x2, y1, z1];
 			}
-			document.onkeyup=function(e){
-				e=e||event;
-				var keycode=e.keyCode;
-				if(keycode==40){
-					obj.speed=obj.lockspeed;
-					obj.keyLock=false;
-				}
-			}
-		}
-		//获得活动方块  get the square
-		Square.prototype.createTypeArr=function(){
-			var type=Math.floor(Math.random()*9+1);
-			var arr=null;
-			switch (type){
-				case 1 :
-				case 2 :
-					arr=[[1,1],[1,1]];
-					break;
-				case 3 :
-					arr=[[1,1,0],[0,1,1]];
-					break;
-				case 4 :
-					arr=[[0,1,1],[1,1,0]];
-					break;
-				case 5 :
-					arr=[[0,1],[1,1],[0,1]];
-					break;
-				case 6 :
-					arr=[[1,0],[1,1],[1,0]];
-					break;
-				case 7 :
-					arr=[[1,1],[1,0],[1,0]];
-					break;
-				case 8 :
-					arr=[[1,1],[0,1],[0,1]];
-					break;
-				case 9 :
-					arr=[[1],[1],[1],[1]];
-					break;
-				default:
-					arr=[[1,1,1,1]];
-			}
-			var data=this.extendData({arr:null,type:0,x:0,y:0,width:0,height:0},{arr:arr,type:type,x:3,y:0,width:arr[0].length,height:arr.length});
-			return data;
-		}
-		//旋转   round this data
-		Square.prototype.scroll=function(data){
-			if(data.type==1){
-				return data;
-			}
-			var newarr=new Array(data.width);
-			for(var j=0;j<newarr.length;j++){
-				newarr[j]=new Array(data.height);
-			}
-			for(var i=0;i<data.height;i++){
-				for(var j=0;j<data.width;j++){
-						var nar=newarr[j];
-						nar[i]=data.arr[i][j];
-				}
-			}
-			var x0=data.x+data.width/2.0;
-			var y0=data.y+data.height/2.0;
-			var x=Math.round(x0-y0+data.y*1.0);
-			var y=Math.round(-(x-data.x)+data.y);
-			for(var i=0;i<data.width;i++){
-				newarr[i]=newarr[i].reverse();
-			}
-			if(newarr[0].length>2){
-				x=x-1;
-			}
-			if(newarr.length<=2){
-				y=y+1;
-			}
-			return this.extendData(data,{arr:newarr,x:x,y:y,width:newarr[0].length,height:newarr.length});
-		}
-		//开始  start();
-		var square=new Square(500);
-		square.start();
-	</script>
+			
+			return T(arg1, p1, arg2, p2);
+		};
+
+		var Push = function(tar, to, trans, itself) {
+			var tar = tar || [];
+			itself = itself || false;
+			_each(to, function(item) {
+				itself && tar.push(item);
+				tar.push((item)(trans));
+			});
+			return tar;
+		};
+
+		var PushX = function(tar, to, op, itself) {
+			return Push(tar, to, RevertX(op || P(0, 0)), itself);
+		};
+
+		var PushY = function(tar, to, op, itself) {
+			return Push(tar, to, RevertY(op || P(0, 0)), itself);
+		};
+
+		var PushZ = function(tar, to, op, itself) {
+			return Push(tar, to, RevertZ(op || P(0, 0)), itself);
+		};
+
+		var PushXY = function(tar, to, op, itself) {
+			return Push(tar, to, RevertXY(op || P(0, 0)), itself);
+		};
+
+		var PushYZ = function(tar, to, op, itself) {
+			return Push(tar, to, RevertYZ(op || P(0, 0)), itself);
+		};
+
+		var PushXZ = function(tar, to, op, itself) {
+			return Push(tar, to, RevertXZ(op || P(0, 0)), itself);
+		};
+
+		var PushXYZ = function(tar, to, op, itself) {
+			return Push(tar, to, RevertXYZ(op || P(0, 0)), itself);
+		};
+
+		var setData = function() {
+			data = [
+				// Ground
+				R([-1200, 0, -1000], [1200, 0, 1000])({A: 0.1}),
+			];
+
+			// Build Struct
+				var buildRight = [];
+
+				PushX(buildRight, [
+					// Right Building Left Plane
+					R([270, 0, -240], [270, 300, 240])], P(910 / 2 + 270, 0, 0), true);
+
+				PushZ(buildRight, [
+					// Right Building Front Plane
+					R([270, 0, -240], [270 + 910, 300, -240])], 0, true);
+
+				PushX(data, buildRight, 0, true);
+
+			// Pillar
+				var pillar_br = [];
+				PushX(pillar_br, [
+					// Right Back Pillar Base Left Plane
+					R([40, 0, 240], [40, 40, 190]),
+					// Right Back Pillar Up Left Plane
+					T([40, 40, 240], [40, 300, 240], [40, 300, 210], [40, 40, 190])
+					], P(55, 0, 0), true);
+
+				PushZ(pillar_br, [
+					// Right Back Pillar Pillar Base Back Plane
+					R([40, 0, 240], [70, 40, 240])], P(0, 0, 215), true);
+				
+				pillar_br.push(
+					// Right Back Pillar Pillar Top Back Plane
+					R([40, 0, 240], [70, 300, 240]));
+
+				pillar_br.push(
+					// Right Back Pillar Pillar Top Front Plane
+					T([40, 40, 190], [40, 300, 210], [70, 300, 210], [70, 40, 190]));
+
+				var pillar_b_base = [];
+				PushX(pillar_b_base, pillar_br, 0, true);
+				PushZ(data, pillar_b_base, 0, true);
+
+			// Top Circle
+			var topCircle = [];
+
+			topCircle.push(
+				//Top Circle Middle Back part
+				R([-250, 320, 220], [250, 320, 260])({strokes: [0, 1, 0, 1]})
+			);
+
+			PushZ(topCircle, [
+				// Top Circle right Back Part
+				R([250, 320, 260], [410, 320, 220])({strokes: [0, 0, 1, 1]})], 0, true);
+
+			topCircle.push(
+				// Top Circle right right part
+				R([250, 320, 220], [410, 320, -220])({strokes: [1, 0, 1, 0]}));
+
+			PushXZ(data, topCircle, 0, true);
+		};
+
+		var per = 3;
+		var modelTransform = M([
+			[  1/per ,    0 ,    0 , 0 ],
+			[  0 ,    1/per ,    0 , 0 ],
+			[  0 ,    0 ,    1/per , 0 ],
+			[  0 , -150/per , 8000/per , 1 ]]);
+
+		var transform;
+		setData();
+		var angel = 0;
+		var todo = function() {
+			transform = Rotate(P(0, 0, 8000/per), P(10, 150/per, 8000/per), angel);
+			transform = (modelTransform)(transform);
+			r_drawer.draw(data, 
+				(transform)
+				(Move(P(18, 0, 0)))
+				(PT)
+				);
+			l_drawer.draw(data, 
+				(transform)
+				(Move(P(-18, 0, 0)))
+				(PT));
+			angel += Math.PI / 90;
+			setTimeout(todo, 40);
+		};
+
+		todo();
+		</script>
+	</head>
+	<body>
+	<!--<div style="position: absolute;top: 320px;left:360px;color:rgb(180,180,180);font-size:2em;">Pnuts CC</div>-->
+	<canvas id="canvas1" width="960" height="640" style="opacity:0.33;">Your browser does not have support for Canvas.</canvas>
+	<canvas id="canvas2" width="960" height="640" style="opacity:0.5;">Your browser does not have support for Canvas.</canvas>
+	<canvas id="canvas3" width="960" height="640" style="opacity:0.25;">Your browser does not have support for Canvas.</canvas>
+			</body>
 </html>
