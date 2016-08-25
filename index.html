@@ -1,660 +1,382 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"> 
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 	<head>
-		<style>
-			canvas {
-				position: absolute;
-				top: -80px;
-				left: -60px;
-			}
-		</style>
-		<script>
-					var _each = function(array, func) {
-			for(var i = 0; i < array.length; i++) {
-				func(array[i]);
-			}
-		};
-
-		var Matrix = function(data) {
-			data = data.data || data;
-			data = data[0].length ? data : [data];
-			var height = data.length;
-			var width = data[0].length;
-			var prop = {};
-
-			var matrixObj = function(arg1, arg2) {
-				// y = arg1, x = arg2;
-				if(arg1._index !== undefined) { return data[0][arg1._index]; } // for x, y, z
-				if(typeof(arg1) === 'number') { return arg2 === undefined ? data[arg1] : data[arg1][arg2]; }
-
-				// arg1.type == "matrix", then M * M
-				if(arg1.type == 'matrix') {
-					var resultMatrix = [], resultLine, sum;
-					for(var h = 0; h < height; h ++) {
-						resultMatrix.push(resultLine = []);
-						for(var w = 0; w < arg1.width; w ++) {
-							sum = 0;
-							for(var i = 0; i < width; i ++) {
-								// sum += matrixObj(h, i) * arg1(i, w);
-								sum += data[h][i] * arg1.data[i][w]; // For performance
-							}
-							resultLine.push(sum);
-						}
-					}
-					return Matrix(resultMatrix)(prop);
-				} else {
-					for(var key in arg1) {
-						prop[key] = arg1[key];
-						matrixObj[key] = arg1[key];
-					}
-					return matrixObj;
-				}
-			};
-
-			// Array output
-			matrixObj.toString = function() {
-				var res = [];
-				for(var i = 0; i < height; i ++) {
-					res.push(i === 0 ? '[' : ' ');
-					res.push('[');
-					for(var j = 0; j < width; j ++) {
-						res.push(matrixObj(i, j));
-						j === width - 1 || res.push(', ');
-					}
-					res.push(']');
-					i === height - 1 ? res.push(']') : res.push(', \n');
-				}
-				return res.join('');
-			};
-
-			matrixObj.type = "matrix";
-
-			matrixObj.height = height;
-			matrixObj.width = width;
-			matrixObj.data = data;
-
-			return matrixObj;
-		};
-
-		var Shape = function() {
-			var data = [];
-
-			var check = function(point) {
-				var res = [];
-				var single = !point[0].length;
-				for(var i = 0; i < point.length; i++) {
-					res.push(single ? point[i] : check(point[i]));
-				}
-				if(single) {
-					res.length === 2 && res.push(0);
-					res.length === 3 && res.push(1);
-				}
-				return res;
-			};
-
-			var push = function(point) {
-				data.push(check(point));
-			};
-
-			for(var i = 0; i < arguments.length; i++) {
-				var item = arguments[i];
-				if(arguments.length === 1) {
-					// P(p1) => p1
-					if(item.type) { return item; } 
-
-					// P([1, 2]) or L([[1, 2], [2, 3]])
-					if(item.length) {
-						return Matrix(check(item));
-					}
-				}
-				
-				if(item.type) {
-					push(item(0)); // L(p1, p2)
-				} else if(item.length) {
-					push(item); // L([0, 1], [1, 2])
-				} else {
-					push(arguments); // P(1, 2)
-					break;
-				};
-			}
-
-			return Matrix(data);
-		};
-
-		var Point = Shape;
-		var Line = Shape;
-		var Triangle = Shape;
-		
-		var M = Matrix, P = Point, L = Line, T = Triangle;
-		var x = { _index: 0 }, y = { _index: 1 }, z = { _index: 2 },
-			a = x, b = y, c = z;
-
-		var Move = function(vec) {
-			return Matrix([
-				[      1 ,      0 ,      0 , 0 ],
-				[      0 ,      1 ,      0 , 0 ],
-				[      0 ,      0 ,      1 , 0 ],
-				[ vec(x) , vec(y) , vec(z) , 1 ]]);
-		};
-
-		var RotateParams = function(args) {
-			if(args.length) { 
-				return args;
-			} else {
-				return [Math.sin(args), Math.cos(args)];
-			}
-		};
-
-		var oppoAngle = function(angle) {
-			return [-angle[0], angle[1]];
-		};
-
-		var MoveBF = function(op, tran) {
-			return (
-				(Move(P2V(op, P(0, 0))))
-				(tran)
-				(Move(op)));
-		};
-
-		var _RevertX = function() {
-			return M([
-				[ -1 , 0 , 0 , 0 ],
-				[  0 , 1 , 0 , 0 ],
-				[  0 , 0 , 1 , 0 ],
-				[  0 , 0 , 0 , 1 ]]);
-		};
-
-		var _RevertY = function() {
-			return M([
-				[ 1 ,  0 , 0 , 0 ],
-				[ 0 , -1 , 0 , 0 ],
-				[ 0 ,  0 , 1 , 0 ],
-				[ 0 ,  0 , 0 , 1 ]]);
-		};
-
-		var _RevertZ = function() {
-			return M([
-				[ 1 , 0 ,  0 , 0 ],
-				[ 0 , 1 ,  0 , 0 ],
-				[ 0 , 0 , -1 , 0 ],
-				[ 0 , 0 ,  0 , 1 ]]);
-		};
-
-		var _RevertXY = function() {
-			return (_RevertX())(_RevertY());
-		};
-
-		var _RevertXZ = function() {
-			return (_RevertX())(_RevertZ());
-		};
-
-		var _RevertYZ = function() {
-			return (_RevertY())(_RevertZ());
-		};
-
-		var _RevertXYZ = function() {
-			return (_RevertXY())(_RevertZ());
-		};
-
-		var RevertX = function(op) {
-			return MoveBF(op, _RevertX());
-		};
-
-		var RevertY = function(op) {
-			return MoveBF(op, _RevertY());
-		};
-
-		var RevertZ = function(op) {
-			return MoveBF(op, _RevertZ());
-		};
-
-		var RevertXY = function(op) {
-			return MoveBF(op, _RevertXY());
-		};
-		
-		var RevertXZ = function(op) {
-			return MoveBF(op, _RevertXZ());
-		};
-
-		var RevertYZ = function(op) {
-			return MoveBF(op, _RevertYZ());
-		};
-
-		var RevertXYZ = function(op) {
-			return MoveBF(op, _RevertXYZ());
-		};
-
-		// X -> Y
-		// (angle) / (sin, cos)
-		var RotateXY = function(angle) {
-			var angle = RotateParams(angle);
-			var sinA = angle[0], cosA = angle[1];
-			return Matrix([
-				[  cosA , sinA , 0 , 0 ],
-				[ -sinA , cosA , 0 , 0 ],
-				[     0 ,    0 , 1 , 0 ],
-				[     0 ,    0 , 0 , 1 ]]);
-		};
-
-		var RotateYX = function(angle) {
-			return RotateXY(oppoAngle(RotateParams(angle)));
-		};
-
-		// Y -> Z
-		/// (angle) / (sin, cos)
-		var RotateYZ = function(angle) {
-			var angle = RotateParams(angle);
-			var sinA = angle[0], cosA = angle[1];
-			return Matrix([
-				[ 1 ,     0 ,    0 , 0 ],
-				[ 0 ,  cosA , sinA , 0 ],
-				[ 0 , -sinA , cosA , 0 ],
-				[ 0 ,     0 ,    0 , 1 ]]);
-		};
-
-		var RotateZY = function(angle) {
-			return RotateYZ(oppoAngle(RotateParams(angle)));
-		};
-		
-		// Z -> X
-		var RotateZX = function(angle) {
-			var angle = RotateParams(angle);
-			var sinA = angle[0], cosA = angle[1];
-			return Matrix([
-				[ cosA , 0 , -sinA , 0 ],
-				[    0 , 1 ,     0 , 0 ],
-				[ sinA , 0 ,  cosA , 0 ],
-				[    0 , 0 ,     0 , 1 ]]);
-		};
-
-		var RotateXZ = function(angle) {
-			return RotateZX(oppoAngle(RotateParams(angle)));
-		};
-
-		var point2Vector = function(p1, p2) {
-			p2 || (p2 = p1, p1 = P(0, 0));
-			return P(p2(x) - p1(x), p2(y) - p1(y), p2(z) - p1(z));
-		};
-
-		var P2V = point2Vector;
-
-		// Rotate by given line
-		var Rotate = function(p1, p2, angle) {
-			var vec = P2V(p1, p2);
-
-			var A = vec(a), B = vec(b), C = vec(c);
-			var lBC = Math.sqrt(B * B + C * C);
-			var lABC = Math.sqrt(A * A + B * B + C * C);
-				
-			var angle1 = [B / lBC, C / lBC];
-			var angle2 = [-A / lABC, lBC / lABC];
-
-			return (
-				(Move(P2V(p1, P(0, 0))))
-				(RotateYZ(angle1))
-				(RotateZX(angle2))
-				(RotateXY(angle))
-				(RotateXZ(angle2))
-				(RotateZY(angle1))
-				(Move(P2V(p1))));
-		};
-
-		var eyeS = 2000;
-
-		var ProjectTransform = function() {
-			return Matrix([
-				[ eyeS ,    0 , 0 , 0 ],
-				[    0 , eyeS , 0 , 0 ],
-				[    0 ,    0 , 1 , 0 ],
-				[    0 ,    0 , 0 , 1 ]
-			]);
-		};
-
-		var PT = ProjectTransform();
-
-		var Project = function(p) {
-			//return P(eyeS * p(x) / p(z), eyeS * p(y) / p(z));
-			return P(p(x) / p(z) , p(y) / p(z));
-		};
-
-		var NormalVector = function (plane) {
-			var v1 = P2V( P(plane(0)), P(plane(1)) );
-			var v2 = P2V( P(plane(0)), P(plane(2)) );
-
-			var p = P(
-				v1(y) * v2(z) - v1(z) * v2(y),
-				v1(z) * v2(x) - v1(x) * v2(z),
-				v1(x) * v2(y) - v1(y) * v2(x)
-			);
-			return p(z) <= 0 ? p : P2V(p, P(0, 0));
-		};
-
-		var SetNormalVector = function (plane) {
-			plane.NV = plane.NV || NormalVector(plane);
-			return plane;
-		};
-		
-		var InnerProduct = function (v1, v2) {
-			return v1(x) * v2(x) + v1(y) * v2(y) + v1(z) * v2(z);
-		};
-
-		var PlaneCompare = function(baseP, toCheck) {
-			var nv = baseP.NV = baseP.NV || NormalVector(baseP);
-			var count = [0 /* front */, 0 /* back */];
-			for(var i = 0; i < toCheck.height; i++) {
-				var ip = InnerProduct(nv, P2V( P(baseP(0)), P(toCheck(i)) ));
-				ip != 0 && count[ip > 0 ? 0 : 1]++;
-			}
-			// 0: Don't Know, 1: toCheck in front of baseP
-			return count[0] ? (count[1] ? 0 : 1) : -1; 
-		};
-
-		// 0: Plane Cross
-		var PlaneCheck = function(baseP, toCheck) {
-			return PlaneCompare(baseP, toCheck) || PlaneCompare(toCheck, baseP);
-		};
-
-		var GeneTree = function(node) {
-			node.items || (node = { items: node });
-			var sp, index, items = node.items;
-			if(items.length <= 1) {
-				return node;
-			};
-			var len = items.length;
-			var halfLen = Math.floor(len / 2);
-			for(var i = 0; i < len; i++) {
-				if(SetNormalVector(
-					sp = items[index = (i + halfLen) % len]
-					).NV(z) != 0)
-				{ break; }
-			}
-			if(!sp) { return node; }
-
-			node.back = { items:[] };
-			node.front = { items:[] };
-			node.curr = sp;
-			
-			for(var i = 0; i < items.length; i++) {
-				if(i == index) { continue; }
-				(PlaneCheck(sp, items[i]) >= 0 ? node.front : node.back)
-					.items.push(items[i]);
-			}
-			node.items = false;
-			GeneTree(node.back);
-			GeneTree(node.front);
-			return node;
-		};
-
-		var TreeEach = function(tree, func) {
-			tree.curr && func(tree.curr);
-			if(tree.items.length) {
-				for(var i = 0; i < tree.items.length; i++) {
-					func(tree.items[i]);
-				}
-			}
-			tree.front && TreeEach(tree.front, func);
-			tree.back && TreeEach(tree.back, func);
-		};
-
-		var BSP = function(node, func) {
-			TreeEach(GeneTree(node), func);
-		};
-
-		var canvasWidth = 960, canvasHeight = 640;
-		var xBase = canvasWidth / 2, yBase = canvasHeight / 2;
-
-		var _Project = Project;
-		Project = function(p) {
-			p = _Project(p);
-			return P(xBase + p(x), yBase - p(y));
-		};
-
-		var Drawer = function(contexts, color) {
-			var width = canvasWidth;
-			var height = canvasHeight;
-
-			var getColor = function(opacity) {
-				color[3] = opacity;
-				return 'rgba(' + color.join(',') + ')';
-			};
-
-			var drawLine = function(context, p1, p2, strokeWidth) {
-				if(!strokeWidth) { return; }
-				var oldWidth = context.lineWidth;
-				context.lineWidth = strokeWidth;
-				context.beginPath();
-				context.moveTo(p1(x), p1(y));
-				context.lineTo(p2(x), p2(y));
-				context.stroke();
-				context.closePath();
-				context.lineWidth = oldWidth;
-			};
-
-			var drawLines = function(cont, points, widths) {
-				if(!widths.length) { return; }
-				for(var i = 0; i < points.length && i < widths.length; i++) {
-					var curr = points[i];
-					var next = points[(i + 1) % points.length];
-					drawLine(cont, curr, next, widths[i]);
-				}
-			};
-			
-			var fillPlane = function(cont, path, drawStroke, fill) {
-				cont.beginPath();
-				cont.moveTo(path[0](x), path[0](y));
-				for(var h = 1; h < path.length + 1; h ++) {
-					var index = h % path.length;
-					var p = path[index];
-					cont.lineTo(p(x), p(y));
-				}
-				drawStroke && cont.stroke();
-				fill && cont.fill();
-				cont.closePath();
-			};
-
-			var drawPlanes = function(item, transform) {
-				item.A = item.A || 0.6;
-				var path = [];
-				for(var h = 0; h < item.height; h ++) {
-					var p = P(item(h));
-					p = transform ? (p)(transform) : p;
-					path.push(Project(p));
-				}
-
-				_each(contexts, function(cont) {
-					cont.fillStyle = getColor(item.A);
-					fillPlane(cont, path, !item.FO && !item.strokes, !item.LO);
-					!item.FO && item.strokes && drawLines(cont, path, item.strokes);
-				});
-			};
-
-			var clearCanvas = function() {
-				_each(contexts, function(context) {
-					context.clearRect(0, 0, width, height);
-				});
-			};
-
-			this.draw = function(data, transform) {
-				clearCanvas();
-				BSP(data, function(item) {
-					drawPlanes(item, transform);
-				});
-			};
-		};
-
-		var contexts = [];
-
-		for(var i = 1; i < 4; i++) {
-			var canvas = document.getElementById('canvas' + i);
-			var context = canvas.getContext('2d');
-			context.lineWidth = 1;
-			contexts.push(context);
-
-			var lr = (i + 1) % 2;
-			context.strokeStyle = lr ? 'rgb(255, 0, 0)' : 'rgb(0, 255, 255)';
-			//context.fillStyle = lr ? 'rgba(255, 0, 0, 0.5)' : 'rgba(0, 255, 255, 0.5)';
-		}
-		var r_drawer = new Drawer([contexts[0], contexts[2]], [0, 255, 255, 0]);
-		var l_drawer = new Drawer([contexts[1]], [255, 0, 0, 0]);
-
-		var data;
-		var transform;
-
-		var deep = 2000;
-		var R = function(arg1, arg2) {
-			var x1 = arg1[0], x2 = arg2[0];
-			var y1 = arg1[1], y2 = arg2[1];
-			var z1 = arg1[2], z2 = arg2[2];
-
-			var p1, p2;
-			if(x1 == x2) {
-				p1 = [x1, y1, z2];
-				p2 = [x1, y2, z1];
-			} else if(y1 == y2) {
-				p1 = [x1, y1, z2];
-				p2 = [x2, y1, z1];
-			} else {
-				p1 = [x1, y2, z1];
-				p2 = [x2, y1, z1];
-			}
-			
-			return T(arg1, p1, arg2, p2);
-		};
-
-		var Push = function(tar, to, trans, itself) {
-			var tar = tar || [];
-			itself = itself || false;
-			_each(to, function(item) {
-				itself && tar.push(item);
-				tar.push((item)(trans));
-			});
-			return tar;
-		};
-
-		var PushX = function(tar, to, op, itself) {
-			return Push(tar, to, RevertX(op || P(0, 0)), itself);
-		};
-
-		var PushY = function(tar, to, op, itself) {
-			return Push(tar, to, RevertY(op || P(0, 0)), itself);
-		};
-
-		var PushZ = function(tar, to, op, itself) {
-			return Push(tar, to, RevertZ(op || P(0, 0)), itself);
-		};
-
-		var PushXY = function(tar, to, op, itself) {
-			return Push(tar, to, RevertXY(op || P(0, 0)), itself);
-		};
-
-		var PushYZ = function(tar, to, op, itself) {
-			return Push(tar, to, RevertYZ(op || P(0, 0)), itself);
-		};
-
-		var PushXZ = function(tar, to, op, itself) {
-			return Push(tar, to, RevertXZ(op || P(0, 0)), itself);
-		};
-
-		var PushXYZ = function(tar, to, op, itself) {
-			return Push(tar, to, RevertXYZ(op || P(0, 0)), itself);
-		};
-
-		var setData = function() {
-			data = [
-				// Ground
-				R([-1200, 0, -1000], [1200, 0, 1000])({A: 0.1}),
-			];
-
-			// Build Struct
-				var buildRight = [];
-
-				PushX(buildRight, [
-					// Right Building Left Plane
-					R([270, 0, -240], [270, 300, 240])], P(910 / 2 + 270, 0, 0), true);
-
-				PushZ(buildRight, [
-					// Right Building Front Plane
-					R([270, 0, -240], [270 + 910, 300, -240])], 0, true);
-
-				PushX(data, buildRight, 0, true);
-
-			// Pillar
-				var pillar_br = [];
-				PushX(pillar_br, [
-					// Right Back Pillar Base Left Plane
-					R([40, 0, 240], [40, 40, 190]),
-					// Right Back Pillar Up Left Plane
-					T([40, 40, 240], [40, 300, 240], [40, 300, 210], [40, 40, 190])
-					], P(55, 0, 0), true);
-
-				PushZ(pillar_br, [
-					// Right Back Pillar Pillar Base Back Plane
-					R([40, 0, 240], [70, 40, 240])], P(0, 0, 215), true);
-				
-				pillar_br.push(
-					// Right Back Pillar Pillar Top Back Plane
-					R([40, 0, 240], [70, 300, 240]));
-
-				pillar_br.push(
-					// Right Back Pillar Pillar Top Front Plane
-					T([40, 40, 190], [40, 300, 210], [70, 300, 210], [70, 40, 190]));
-
-				var pillar_b_base = [];
-				PushX(pillar_b_base, pillar_br, 0, true);
-				PushZ(data, pillar_b_base, 0, true);
-
-			// Top Circle
-			var topCircle = [];
-
-			topCircle.push(
-				//Top Circle Middle Back part
-				R([-250, 320, 220], [250, 320, 260])({strokes: [0, 1, 0, 1]})
-			);
-
-			PushZ(topCircle, [
-				// Top Circle right Back Part
-				R([250, 320, 260], [410, 320, 220])({strokes: [0, 0, 1, 1]})], 0, true);
-
-			topCircle.push(
-				// Top Circle right right part
-				R([250, 320, 220], [410, 320, -220])({strokes: [1, 0, 1, 0]}));
-
-			PushXZ(data, topCircle, 0, true);
-		};
-
-		var per = 3;
-		var modelTransform = M([
-			[  1/per ,    0 ,    0 , 0 ],
-			[  0 ,    1/per ,    0 , 0 ],
-			[  0 ,    0 ,    1/per , 0 ],
-			[  0 , -150/per , 8000/per , 1 ]]);
-
-		var transform;
-		setData();
-		var angel = 0;
-		var todo = function() {
-			transform = Rotate(P(0, 0, 8000/per), P(10, 150/per, 8000/per), angel);
-			transform = (modelTransform)(transform);
-			r_drawer.draw(data, 
-				(transform)
-				(Move(P(18, 0, 0)))
-				(PT)
-				);
-			l_drawer.draw(data, 
-				(transform)
-				(Move(P(-18, 0, 0)))
-				(PT));
-			angel += Math.PI / 90;
-			setTimeout(todo, 40);
-		};
-
-		todo();
-		</script>
+		<META http-equiv=Content-Type content="text/html; charset=UTF-8"/>
 	</head>
-	<body>
-	<!--<div style="position: absolute;top: 320px;left:360px;color:rgb(180,180,180);font-size:2em;">Pnuts CC</div>-->
-	<canvas id="canvas1" width="960" height="640" style="opacity:0.33;">Your browser does not have support for Canvas.</canvas>
-	<canvas id="canvas2" width="960" height="640" style="opacity:0.5;">Your browser does not have support for Canvas.</canvas>
-	<canvas id="canvas3" width="960" height="640" style="opacity:0.25;">Your browser does not have support for Canvas.</canvas>
-			</body>
+	<style>
+		#background {
+		width : 100%;
+		height : 100%;
+		position : absolute;
+		top : 0px;
+		left : 0px;
+		overflow-x : hidden;
+		z-index : -1;
+	
+		background: -moz-linear-gradient(-90deg, rgb(40,30,30), rgb(90,70,70));
+		background: -webkit-gradient(linear, left top, left bottom, from(rgb(40,30,30)), to(rgb(90,70,70)));
+	}
+	
+	#background .level {
+		height : 248px;
+		width : 3392px;
+		position : absolute;
+		bottom : -16px;
+		left : 0px;
+		background-image : url(http://sandbox.runjs.cn/uploads/rs/374/zx7h4auw/mariobackground.png);
+	/*	overflow-x : hidden;*/
+	}
+	
+	#background .overlay {
+		width : 3392px;
+		height : 100%;
+		position : absolute;
+		top : 0px;
+		left : 0px;
+		background-color : rgba(50,40,20,0.5);
+	}
+	
+	#background .mario-sprite {
+		width : 16px;
+		height : 16px;
+		overflow : hidden;
+		position : absolute;
+		left : -999px;
+	}
+	
+	
+	#background .text-1 {
+		position : absolute;
+		left : 1650px;
+		top : -120px;
+	}
+	
+	#background .text-2 {
+		position : absolute;
+		left : 3100px;
+		top : -180px;
+	}	
+	</style>
+<body>
+	<script id="jquery_183" type="text/javascript" class="library" src="/js/sandbox/jquery/jquery-1.8.3.min.js"></script>
+	<script type="text/javascript" src="http://sandbox.runjs.cn/uploads/rs/374/zx7h4auw/jquery.cookie.js"></script>
+
+	<div id='background'>
+	<div class='level'>
+	<img class='text-1' src='http://www.nihilogic.dk/blog-files/mario-text-1.png'/>
+	<div class='mario-sprite'></div>
+</body>
+<script type="text/javascript">
+	$(document).ready(function() {
+
+var $background = $("#background");
+
+var collisionMap = [
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,1,0,0,0,0,1,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,0,0,0,0,1,1,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,1,1,1,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+var $mario = $("#background .level .mario-sprite");
+
+var marioImg = new Image();
+marioImg.src = "http://sandbox.runjs.cn/uploads/rs/374/zx7h4auw/mariosprite.png";
+$mario.append(marioImg);
+
+var pos = [8,13 - $(window).height()/16];
+var vel = [0,0];
+var velMax = [0.4,0.8];
+var velMin = [-0.4,-0.85];
+var marioDir = 0;
+var onGround = false;
+var marioFaceDir = 1;
+
+var scrollPos = 0;
+var scrolling = false;
+var scrollSpeed = 0;
+
+var idleTime = 60000;
+var lastActionTime;
+function checkIdle() {
+	var now = new Date().getTime();
+	if (now - lastActionTime > idleTime) {
+		if (onGround) 
+			vel[1] = velMin[1];
+		lastActionTime = now;
+	}
+}
+
+function initMario() {
+	var data = $.cookie("mario-data");
+	if (data) {
+		var vals = data.split(",");
+		$background.scrollLeft(parseInt(vals[0]));
+		pos[0] = parseFloat(vals[1]);
+		pos[1] = parseFloat(vals[2]);
+		scrollPos = parseInt(vals[0]);
+	} else {
+		$background.scrollLeft(0);
+	}
+	setSprite(spriteStates.JUMPRIGHT);
+	setInterval(doMarioStuff, 1000/15);
+	lastActionTime = new Date().getTime();
+	setInterval(checkIdle, 1000);
+}
+
+function setSprite(idx) {
+	$mario.scrollLeft(idx*16);
+}
+
+var spriteStates = {
+	JUMPLEFT : 0,
+	RUNLEFT1 : 1,
+	RUNLEFT2 : 2,
+	RUNLEFT3 : 3,
+	STANDLEFT : 5,
+	STANDRIGHT : 6,
+	RUNRIGHT1 : 7,
+	RUNRIGHT2 : 8,
+	RUNRIGHT3 : 9,
+	JUMPRIGHT : 11
+}
+
+
+function doMarioStuff() {
+	var velIncX = 0.05;
+	if (marioDir) {
+		marioFaceDir = marioDir;
+		vel[0] += velIncX * marioDir;
+	} else {
+		vel[0] *= 0.8;
+		if (Math.abs(vel[0]) < 0.05) vel[0] = 0;
+	}
+
+	vel[1] += 0.08;
+	if (vel[0] > velMax[0]) vel[0] = velMax[0];
+	if (vel[0] < velMin[0]) vel[0] = velMin[0];
+	if (vel[1] > velMax[1]) vel[1] = velMax[1];
+	if (vel[1] < velMin[1]) vel[1] = velMin[1];
+
+	var newPos = [
+		pos[0] + vel[0],
+		pos[1] + vel[1]
+	];
+
+	if (onGround) {
+		if (vel[0] == 0) {
+			walkCycle = 0;
+			setSprite(marioFaceDir < 0 ? spriteStates.STANDLEFT : spriteStates.STANDRIGHT);
+		} else {
+			walkCycle += 0.5;
+			if (walkCycle >= 3) walkCycle = 0;
+			setSprite(
+				(vel[0] < 0 ? spriteStates.RUNLEFT1 : spriteStates.RUNRIGHT1)
+				+ (walkCycle>>0)
+			);
+		}
+	} else {
+		walkCycle = 0;
+		setSprite(marioFaceDir < 0 ? spriteStates.JUMPLEFT : spriteStates.JUMPRIGHT);
+	}
+
+	pos = collide(pos, newPos);	
+
+	if (pos[0] != newPos[0]) vel[0] = 0;
+	if (pos[1] != newPos[1]) vel[1] = 0;
+
+	if (pos[1] > 13) pos[1] = 13 - $(window).height()/16;
+
+	if (pos[0] > $(window).width()/16 - 16 + scrollPos/16)
+		initScroll(1);
+	else if (pos[0] < 16 + scrollPos/16)
+		initScroll(-1);
+
+	$mario
+		.css("left", pos[0]*16)
+		.css("bottom", 13*16 - pos[1]*16)
+	;
+}
+
+function initScroll(dir) {
+	scrollSpeed = dir;
+	if (scrolling) return;
+	scrolling = true;
+	scroll();
+}
+
+function scroll() {
+	$background.scrollLeft(scrollPos + 32 * scrollSpeed);
+	scrollSpeed *= 0.92;
+
+	scrollPos = $background.scrollLeft();
+	if (Math.abs(scrollSpeed) > 0.1)
+		setTimeout(scroll, 1000 / 15);
+	else
+		scrolling = false;
+
+}
+
+
+
+function collide(pos1, pos2) {
+	var oldX = pos1[0];
+	var oldY = pos1[1];
+	var newX = pos2[0];
+	var newY = pos2[1];
+
+	var collision, xAdjust = 0;
+
+	var space = 1/16;
+
+	onGround = false;
+
+	if (oldY != newY) { // moving vertically
+		if (newY > oldY) { // moving down
+			// lower left collision
+			collision = isBlocking(newX + space, newY + 1);
+			if (collision && !isBlocking(newX + space, newY)) {
+				newY -= collision[1];
+				onGround = true;
+			}
+
+			// lower right collision
+			collision = isBlocking(newX + 1-space, newY + 1);
+			if (collision && !isBlocking(newX + 1-space, newY)) {
+				newY -= collision[1];
+				onGround = true;
+			}
+		// moving up
+		} else {
+
+			// upper left collision
+			collision = isBlocking(newX + space, newY);
+			if (collision && !isBlocking(newX + space, newY + 1)) {
+				newY += (1 - collision[1]);
+			}
+
+			// upper right collision
+			collision = isBlocking(newX + 1 - space, newY);
+			if (collision && !isBlocking(newX + 1 - space, newY + 1)) {
+				newY += (1 - collision[1]);
+				xAdjust = 1;
+			}
+		}
+
+	}
+	// moving horizontally
+	if (oldX != newX) {
+
+		// moving right
+		if (newX > oldX) {
+
+			// lower right collision
+			collision = isBlocking(newX + 1, newY + 1-space);
+			if (collision) {
+				newX -= collision[0];
+			}
+
+			// upper right collision
+			collision = isBlocking(newX + 1, newY);
+			if (collision) {
+				newX -= collision[0];
+			}
+
+		// moving left
+		} else {
+
+			// lower left collision
+			collision = isBlocking(newX, newY + 1-space);
+			if (collision) {
+				newX += (1 - collision[0]);
+			}
+
+			// upper left collision
+			collision = isBlocking(newX, newY);
+			if (collision) {
+				newX += (1 - collision[0]);
+			}
+		}
+	}
+
+	return [newX,newY,xAdjust];
+}
+
+
+// check if a tile is blocking
+function isBlocking(x, y) {
+	var tx = x>>0;
+	var ty = y>>0;
+
+	if (collisionMap[ty] && collisionMap[ty][tx]) {
+		return [x - tx, y - ty];
+	}
+	if (collisionMap[ty] && typeof collisionMap[ty][tx] == "undefined")
+		return [x - tx, y - ty];
+}
+
+
+$(document).keydown(function(e) {
+	var now = new Date().getTime();
+	switch (e.which) {
+		case 39: // right
+			lastActionTime = now;
+			marioDir = 1;
+			break;
+		case 37: // left
+			lastActionTime = now;
+			marioDir = -1;
+			break;
+		case 38: // up
+			lastActionTime = now;
+			if (onGround) 
+				vel[1] = velMin[1];
+			break;
+	}
+	//console.log(e.which)
+});
+
+$(document).keyup(function(e) {
+	var now = new Date().getTime();
+	switch (e.which) {
+		case 39: // right
+			lastActionTime = now;
+			if (marioDir == 1)
+				marioDir = 0;
+			break;
+		case 37: // left
+			lastActionTime = now;
+			if (marioDir == -1)
+				marioDir = 0;
+			break;
+
+	}
+	//console.log(e.which)
+});
+
+$(window).bind("resize", function() {
+	$background.scrollLeft(scrollPos);
+});
+
+$(window).bind("unload", function() {
+	$.cookie("mario-data", scrollPos + "," + pos[0] + "," + pos[1]);
+});
+
+
+
+initMario();
+
+});
+
+	
+</script>
 </html>
